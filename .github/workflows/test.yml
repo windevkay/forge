@@ -1,0 +1,113 @@
+name: Test Go Packages
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+
+jobs:
+  discover-packages:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.find-packages.outputs.packages }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Find Go packages
+      id: find-packages
+      run: |
+        # Find all directories with go.mod files
+        packages=$(find . -name "go.mod" -not -path "./.*" | xargs -I {} dirname {} | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]')
+        echo "packages=$packages" >> $GITHUB_OUTPUT
+        echo "Found packages: $packages"
+
+  test:
+    needs: discover-packages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover-packages.outputs.packages) }}
+        go-version: ['1.21', '1.22']
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles(format('{0}/go.sum', matrix.package)) }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Download dependencies
+      working-directory: ${{ matrix.package }}
+      run: go mod download
+
+    - name: Run tests
+      working-directory: ${{ matrix.package }}
+      run: go test -v -race -coverprofile=coverage.out ./...
+
+    - name: Generate coverage report
+      working-directory: ${{ matrix.package }}
+      run: go tool cover -html=coverage.out -o coverage.html
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-${{ matrix.package }}-go${{ matrix.go-version }}
+        path: ${{ matrix.package }}/coverage.html
+        retention-days: 30
+
+  lint:
+    needs: discover-packages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover-packages.outputs.packages) }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        working-directory: ${{ matrix.package }}
+        args: --timeout=5m
+
+  build:
+    needs: discover-packages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover-packages.outputs.packages) }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Build
+      working-directory: ${{ matrix.package }}
+      run: go build -v ./...
+
