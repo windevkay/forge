@@ -1,0 +1,15 @@
+workflows:
+  workflow1:
+    - step1:
+      name: workflow1_step1
+      retryafter: 5m
+    - step2:
+      name: workflow1_step2
+      retryafter: 10m
+  workflow2:
+    - step1:
+      name: workflow2_step1
+      retryafter: 7m
+    - step2:
+      name: workflow2_step2
+      retryafter: 5m

@@ -11,7 +11,7 @@ RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 WORKDIR /build
 
 # Copy go mod files
-COPY go.mod ./
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
