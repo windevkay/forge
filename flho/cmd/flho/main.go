@@ -36,8 +36,9 @@ func (app *application) routes() *http.ServeMux {
 
 func main() {
 	var cfg config
+	const defaultHTTPPort = 4000
 
-	flag.IntVar(&cfg.port, "PORT", 4000, "HTTP server port")
+	flag.IntVar(&cfg.port, "PORT", defaultHTTPPort, "HTTP server port")
 	flag.StringVar(&cfg.workflowConfig, "WORKFLOWS", "", "Path to workflow config YAML")
 	flag.Parse()
 
