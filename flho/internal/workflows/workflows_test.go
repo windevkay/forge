@@ -15,7 +15,7 @@ func writeTempFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
 
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	require.NoError(t, err)
 
 	return tmpFile

@@ -26,10 +26,10 @@ type application struct {
 	wg         sync.WaitGroup
 }
 
-func (a *application) routes() *http.ServeMux {
+func (app *application) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", a.healthcheck)
+	mux.HandleFunc("/health", app.healthcheck)
 
 	return mux
 }

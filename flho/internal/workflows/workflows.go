@@ -1,9 +1,44 @@
+// Package workflows provides functionality for managing and executing workflow configurations.
+//
+// This package handles the parsing and storage of YAML-based workflow definitions.
+// Workflows are composed of named steps that can include retry mechanisms with
+// configurable delays and retry URLs.
+//
+// Key components:
+//   - ConfigStore: Manages workflow configurations loaded from YAML files
+//   - Workflow: Represents a sequence of named steps
+//   - Step: Individual workflow step with retry configuration
+//
+// The package supports loading workflow configurations from YAML files with the
+// following structure:
+//
+//	workflows:
+//	  example-workflow:
+//	    - step1:
+//	        name: "First Step"
+//	        retryafter: "5s"
+//	        retryurl: "https://example.com/retry"
+//	    - step2:
+//	        name: "Second Step"
+//	        retryafter: "10s"
+//	        retryurl: "https://example.com/retry2"
+//
+// Example usage:
+//
+//	configStore, err := NewConfigStoreFromFile("workflows.yaml")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	workflows := configStore.GetWorkflows()
 package workflows
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -12,7 +47,7 @@ import (
 type Step struct {
 	Name       string        `yaml:"name"`
 	RetryAfter time.Duration `yaml:"retryafter"`
-	RetryUrl   string        `yaml:"retryurl"`
+	RetryURL   string        `yaml:"retryurl"`
 }
 
 type Workflow []map[string]Step
@@ -32,13 +67,25 @@ func NewConfigStoreFromFile(path string) (*ConfigStore, error) {
 		return nil, errors.New("path cannot be empty")
 	}
 
-	file, err := os.Open(path)
+	// Clean and validate the file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(path)
+	if strings.Contains(cleanPath, "..") {
+		return nil, errors.New("path cannot contain '..' sequences")
+	}
+
+	// #nosec G304 - Path is validated above for security
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			log.Printf("encountered an error closing workflow config file: %s", err.Error())
+		}
+	}()
 
-	bytes, err := ioutil.ReadAll(file)
+	bytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
