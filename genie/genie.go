@@ -37,7 +37,11 @@ import (
 	"time"
 )
 
-const backupFilename = ".kvstore_backup.json"
+const (
+	backupFilename     = ".kvstore_backup.json"
+	errorChannelBuffer = 10
+	backupFileMode     = 0600
+)
 
 type Store struct {
 	mu       sync.RWMutex
@@ -82,7 +86,7 @@ func NewStore() (*Store, error) {
 		path:    path,
 		ctx:     ctx,
 		cancel:  cancel,
-		errChan: make(chan error, 10), // buffered to avoid blocking
+		errChan: make(chan error, errorChannelBuffer), // buffered to avoid blocking
 	}
 
 	if err := s.loadFromBackup(); err != nil {
@@ -327,5 +331,5 @@ func (s *Store) loadFromBackup() error {
 		return err
 	}
 
-	return os.WriteFile(s.path, []byte{}, 0600)
+	return os.WriteFile(s.path, []byte{}, backupFileMode)
 }
