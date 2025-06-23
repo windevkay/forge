@@ -39,6 +39,7 @@ func (app *application) serve() error {
 		}
 
 		app.logger.Info("...finishing background tasks", "addr", srv.Addr)
+		app.cancelFunc()
 		app.wg.Wait()
 
 		shutdownError <- nil

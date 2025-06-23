@@ -1,4 +1,4 @@
-// Package workflows provides functionality for managing and executing workflow configurations.
+// Package workflow provides functionality for managing and executing workflow configurations.
 //
 // This package handles the parsing and storage of YAML-based workflow definitions.
 // Workflows are composed of named steps that can include retry mechanisms with
@@ -14,11 +14,11 @@
 //
 //	workflows:
 //	  example-workflow:
-//	    - step1:
+//	    - step0:
 //	        name: "First Step"
 //	        retryafter: "5s"
 //	        retryurl: "https://example.com/retry"
-//	    - step2:
+//	    - step1:
 //	        name: "Second Step"
 //	        retryafter: "10s"
 //	        retryurl: "https://example.com/retry2"
@@ -30,7 +30,7 @@
 //	    log.Fatal(err)
 //	}
 //	workflows := configStore.GetWorkflows()
-package workflows
+package workflow
 
 import (
 	"errors"
