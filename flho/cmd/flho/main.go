@@ -71,7 +71,6 @@ func main() {
 	}
 
 	app.datastore.StartAutoBackup(app.config.dataBackupInterval * time.Minute)
-	defer app.datastore.StopAutoBackup()
 
 	// monitor for errors in data backup
 	go func() {

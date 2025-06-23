@@ -1,20 +1,84 @@
+// Package service provides the core workflow execution engine for the flho system.
+// This package implements a distributed workflow orchestration service that manages
+// the execution of multi-step workflows with automatic retry mechanisms.
+//
+// The service is designed to handle long-running workflows where each step may
+// fail and require retries after specified intervals. It provides persistent
+// state management and supports workflow cancellation, completion tracking,
+// and step progression.
+//
+// Key Features:
+//   - Asynchronous workflow execution with goroutine-based step processing
+//   - Automatic retry mechanisms with configurable intervals
+//   - Thread-safe workflow state management using sync.Map
+//   - Persistent state storage via the genie key-value store
+//   - HTTP-based retry notifications to external services
+//   - Context-based cancellation and timeout support
+//   - Workflow run tracking with start/end timestamps
+//
+// Architecture:
+//
+// The WorkflowService orchestrates workflow execution by:
+//  1. Initiating workflows and generating unique run IDs
+//  2. Processing individual workflow steps in separate goroutines
+//  3. Managing retry timers for failed steps
+//  4. Persisting workflow state for resumption after failures
+//  5. Sending HTTP notifications to retry URLs when steps need attention
+//  6. Tracking active runs and their cancellation functions
+//
+// Workflow Lifecycle:
+//
+//	┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+//	│  InitiateWorkflow│───▶│  processStep     │───▶│ CompleteWorkflow│
+//	└─────────────────┘    └──────────────────┘    └─────────────────┘
+//	                              │                         ▲
+//	                              ▼                         │
+//	                       ┌──────────────────┐             │
+//	                       │  UpdateWorkflow  │─────────────┘
+//	                       └──────────────────┘
+//
+// Usage Example (direct vs using REST endpoints):
+//
+//	config := workflow.NewConfigStore()
+//	store, _ := genie.NewStore()
+//	wg := &sync.WaitGroup{}
+//
+//	service := NewWorkflowService(config, store, wg)
+//
+//	// Start a workflow
+//	runID, err := service.InitiateWorkflow(context.Background(), "user_onboarding")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	// Progress to next step
+//	err = service.UpdateWorkflow(context.Background(), runID)
+//
+//	// Mark as complete
+//	err = service.CompleteWorkflow(runID)
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/windevkay/forge/flho/internal/workflow"
 	"github.com/windevkay/forge/genie"
 )
 
 type WorkflowService struct {
 	config *workflow.ConfigStore
+	logger *slog.Logger
 	runs   sync.Map
 	store  *genie.Store
 	wg     *sync.WaitGroup
@@ -59,19 +123,15 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) erro
 	if !existing {
 		return fmt.Errorf("no data found for run ID: %s", runID)
 	}
-	// cancel the retry countdown for the existing step
-	r, ok := w.runs.Load(runID)
-	if !ok {
-		// TODO: this is critical -
-		return errors.New("missing run data")
+
+	run, err := w.cancelRetryCountdown(runID)
+	if err != nil {
+		return err
 	}
-
-	run := r.(*Run)
-
-	run.retryCancel()
 
 	// getting to this point means we now need to process the next step
 	cIdx, _ := strconv.Atoi(currentIdx)
+	// create a fresh run context and cancel func
 	runCtx, cancel := context.WithCancel(ctx)
 	run.retryCancel = cancel
 
@@ -84,10 +144,10 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) erro
 }
 
 func (w *WorkflowService) CompleteWorkflow(runID string) error {
-	r, _ := w.runs.Load(runID)
-	run := r.(*Run)
-
-	run.retryCancel()
+	run, err := w.cancelRetryCountdown(runID)
+	if err != nil {
+		return err
+	}
 
 	runEnd := time.Now()
 	run.end = &runEnd
@@ -104,7 +164,7 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 
 	workflow := w.config.GetWorkflows()[name]
 	if _, ok := workflow[index][step]; !ok {
-		// TODO: write error details to an err chan
+		w.logger.Error("encountered a step with no config")
 		return
 	}
 
@@ -115,11 +175,54 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 	for {
 		select {
 		case <-ticker.C:
-			// TODO: initiate a retry
+			// curate the data the client can utilize for retries within their app
+			// ideally this information can be used as a key to fetch the appropriate
+			// function that needs to be called/retried + its arguments
+			retryData := struct {
+				WorkflowName  string `json:"workflow_name"`
+				WorkflowStep  string `json:"workflow_step"`
+				WorkflowRunID string `json:"workflow_run_id"`
+			}{
+				WorkflowName:  name,
+				WorkflowStep:  step,
+				WorkflowRunID: runID,
+			}
+
+			jsonData, _ := json.Marshal(retryData)
+
+			// Create HTTP request with context
+			req, err := http.NewRequestWithContext(ctx, "POST", workflow[index][step].RetryURL, bytes.NewBuffer(jsonData))
+			if err != nil {
+				w.logger.Error("failed to create HTTP request")
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			res, err := client.Do(req)
+			if err != nil {
+				w.logger.Error("POST to retryURL unsuccessful")
+				return
+			}
+			_ = res.Body.Close()
+			// cleanup the runs map
+			w.runs.Delete(runID)
 			return
 		case <-ctx.Done():
 			ticker.Stop()
 			return
 		}
 	}
+}
+
+func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
+	r, ok := w.runs.Load(runID)
+	if !ok {
+		return nil, errors.New("run information missing. Did a previous step fail?")
+	}
+	run := r.(*Run)
+
+	run.retryCancel()
+
+	return run, nil
 }

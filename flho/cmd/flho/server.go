@@ -40,6 +40,7 @@ func (app *application) serve() error {
 
 		app.logger.Info("...finishing background tasks", "addr", srv.Addr)
 		app.cancelFunc()
+		app.datastore.StopAutoBackup()
 		app.wg.Wait()
 
 		shutdownError <- nil
