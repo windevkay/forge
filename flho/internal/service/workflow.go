@@ -76,19 +76,68 @@ import (
 	"github.com/windevkay/forge/genie"
 )
 
-type WorkflowService struct {
-	config *workflow.ConfigStore
-	logger *slog.Logger
-	runs   sync.Map
-	store  *genie.Store
-	wg     *sync.WaitGroup
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
-func NewWorkflowService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.WaitGroup) *WorkflowService {
+type UUIDProvider interface {
+	NewString() string
+}
+
+type TimeProvider interface {
+	Now() time.Time
+}
+
+// Production implementations
+
+type DefaultUUIDProvider struct{}
+
+func (p *DefaultUUIDProvider) NewString() string {
+	return uuid.NewString()
+}
+
+type DefaultTimeProvider struct{}
+
+func (p *DefaultTimeProvider) Now() time.Time {
+	return time.Now()
+}
+
+// NewWorkflowService creates a new WorkflowService with default production implementations
+// for HTTP client, UUID provider, and time provider.
+func NewWorkflowService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.WaitGroup, logger *slog.Logger) *WorkflowService {
+	return NewService(
+		cfg,
+		store,
+		wg,
+		logger,
+		&http.Client{},
+		&DefaultUUIDProvider{},
+		&DefaultTimeProvider{},
+	)
+}
+
+type WorkflowService struct {
+	config       *workflow.ConfigStore
+	httpClient   HTTPClient
+	uuidProvider UUIDProvider
+	timeProvider TimeProvider
+	logger       *slog.Logger
+	runs         sync.Map
+	store        *genie.Store
+	wg           *sync.WaitGroup
+}
+
+// NewService creates a new instance of WorkflowService with the provided configuration,
+// store, and wait group for managing workflow executions.
+func NewService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.WaitGroup, logger *slog.Logger, httpClient HTTPClient, uuidProvider UUIDProvider, timeProvider TimeProvider) *WorkflowService {
 	return &WorkflowService{
-		config: cfg,
-		store:  store,
-		wg:     wg,
+		config:       cfg,
+		httpClient:   httpClient,
+		uuidProvider: uuidProvider,
+		timeProvider: timeProvider,
+		logger:       logger,
+		store:        store,
+		wg:           wg,
 	}
 }
 
@@ -98,12 +147,14 @@ type Run struct {
 	start, end   *time.Time
 }
 
-func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) (string, error) {
+// InitiateWorkflow starts a new workflow instance with the given name, returning a unique run ID.
+// It initiates the first step of the workflow in a separate goroutine.
+func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) string {
 	index := 0 // starting a new workflow so defaulting to first step
 
-	runID := uuid.NewString()
+	runID := w.uuidProvider.NewString()
 	runCtx, cancel := context.WithCancel(ctx)
-	runstart := time.Now()
+	runstart := w.timeProvider.Now()
 	run := &Run{
 		workflowName: name,
 		retryCancel:  cancel,
@@ -115,9 +166,11 @@ func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) (st
 	w.wg.Add(1)
 	go w.processStep(runCtx, index, runID, name)
 
-	return runID, nil
+	return runID
 }
 
+// UpdateWorkflow progresses the specified workflow by one step.
+// It retrieves the current step index and processes the next step.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) error {
 	currentIdx, existing := w.store.Get(runID)
 	if !existing {
@@ -143,13 +196,15 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) erro
 	return nil
 }
 
+// CompleteWorkflow finalizes the specified workflow run.
+// It cancels any pending retries and marks the workflow end time.
 func (w *WorkflowService) CompleteWorkflow(runID string) error {
 	run, err := w.cancelRetryCountdown(runID)
 	if err != nil {
 		return err
 	}
 
-	runEnd := time.Now()
+	runEnd := w.timeProvider.Now()
 	run.end = &runEnd
 
 	w.runs.Store(runID, run)
@@ -157,12 +212,19 @@ func (w *WorkflowService) CompleteWorkflow(runID string) error {
 	return nil
 }
 
+// processStep executes a single step in the workflow, managing retries and HTTP notifications.
+// It stops when the context is done or after a successful HTTP POST request.
 func (w *WorkflowService) processStep(ctx context.Context, index int, runID, name string) {
 	defer w.wg.Done()
 
 	step := fmt.Sprintf("step%v", index)
 
 	workflow := w.config.GetWorkflows()[name]
+	if workflow == nil || len(workflow) <= index {
+		w.logger.Error("encountered a step with no config - workflow not found or invalid index")
+		return
+	}
+
 	if _, ok := workflow[index][step]; !ok {
 		w.logger.Error("encountered a step with no config")
 		return
@@ -198,7 +260,7 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 			}
 			req.Header.Set("Content-Type", "application/json")
 
-			client := &http.Client{}
+			client := w.httpClient
 			res, err := client.Do(req)
 			if err != nil {
 				w.logger.Error("POST to retryURL unsuccessful")
@@ -215,6 +277,8 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 	}
 }
 
+// cancelRetryCountdown cancels any pending retries for the specified run ID.
+// It retrieves and returns the run information.
 func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
 	r, ok := w.runs.Load(runID)
 	if !ok {
