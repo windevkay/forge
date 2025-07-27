@@ -277,7 +277,7 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 			}
 			_ = res.Body.Close()
 			// mark run as failed
-			_ = w.markRunAsFailed(runID)
+			w.markRunAsFailed(runID)
 			return
 		case <-ctx.Done():
 			ticker.Stop()
@@ -301,7 +301,7 @@ func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
 }
 
 // help to mark a failed run and update the end timestamp
-func (w *WorkflowService) markRunAsFailed(runID string) error {
+func (w *WorkflowService) markRunAsFailed(runID string) {
 	r, _ := w.runs.Load(runID)
 	run := r.(*Run)
 	run.failed = true
@@ -309,5 +309,4 @@ func (w *WorkflowService) markRunAsFailed(runID string) error {
 	run.end = &runEnd
 
 	w.runs.Store(runID, run)
-	return nil
 }

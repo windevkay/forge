@@ -46,6 +46,9 @@ const (
 	backupFileMode     = 0600
 )
 
+// Store represents a thread-safe in-memory key-value store with backup functionality.
+// It provides methods for storing and retrieving values of any type, along with
+// automatic and manual backup capabilities to persist data to disk.
 type Store struct {
 	mu       sync.RWMutex
 	data     map[string]any

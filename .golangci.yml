@@ -1,6 +1,8 @@
 # golangci-lint configuration
 # This file will be used by all Go packages in subdirectories
 
+version: 2
+
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -36,39 +38,54 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - wrapperFunc
+  funlen:
+    lines: 100
+    statements: 50
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '10'
+      - '100'
+      - '1000'
 
 linters:
   enable:
+    # Default enabled linters
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional useful linters
     - bodyclose
     - copyloopvar
     - dogsled
     - dupl
-    - errcheck
     - exhaustive
-    - funlen
     - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
     - mnd
     - goprintffuncname
     - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - misspell
     - nakedret
-    - noctx
     - nolintlint
     - rowserrcheck
-    - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
-    - unused
     - whitespace
 
 issues:
@@ -78,7 +95,17 @@ issues:
         - mnd
         - funlen
         - goconst
+        - gosec
+    - path: example.*\.go
+      linters:
+        - mnd
+        - gosec
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
