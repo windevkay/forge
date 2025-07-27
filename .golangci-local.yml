@@ -1,5 +1,7 @@
-# golangci-lint configuration
-# This file will be used by all Go packages in subdirectories
+# golangci-lint configuration for local development (version 2.3.0)
+# This file is used for local development with golangci-lint v2.x
+
+version: 2
 
 run:
   timeout: 5m
@@ -39,7 +41,7 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
-  gomnd:
+  mnd:
     checks:
       - argument
       - case
@@ -80,7 +82,7 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - misspell
@@ -103,7 +105,7 @@ issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - funlen
         - goconst
         - gosec
@@ -116,7 +118,7 @@ issues:
         - gochecknoinits
     - path: example.*\.go
       linters:
-        - gomnd
+        - mnd
         - gosec
         - gocritic
     - text: "exported.*should have comment.*or be unexported"
@@ -130,4 +132,3 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
