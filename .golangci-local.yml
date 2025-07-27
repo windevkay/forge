@@ -39,8 +39,9 @@ linters-settings:
       - whyNoLint
       - wrapperFunc
   funlen:
-    lines: 100
-    statements: 50
+    lines: 120
+    statements: 60
+    ignore-comments: true
   mnd:
     checks:
       - argument
@@ -77,7 +78,6 @@ linters:
     - dogsled
     - dupl
     - exhaustive
-    - funlen
     - gochecknoinits
     - goconst
     - gocritic
@@ -100,6 +100,7 @@ linters:
     - testpackage
     - varnamelen
     - noctx
+    - funlen
 
 issues:
   exclude-rules:

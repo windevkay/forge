@@ -7,10 +7,12 @@ import (
 
 type envelope map[string]any
 
+// InitiateWorkflowRequest represents the request body for initiating a workflow
 type InitiateWorkflowRequest struct {
 	Name string `json:"name"`
 }
 
+// UpdateWorkflowRequest represents the request body for updating a workflow
 type UpdateWorkflowRequest struct {
 	RunID string `json:"run_id"`
 }

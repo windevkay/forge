@@ -21,7 +21,6 @@ func writeTempFile(t *testing.T, content string) string {
 	return tmpFile
 }
 
-//nolint:funlen // Test function with many test cases
 func TestNewStoreFromFile(t *testing.T) {
 	tests := []struct {
 		name          string
