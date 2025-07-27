@@ -18,6 +18,22 @@ func TestStore_SetGet(t *testing.T) {
 	val, ok := s.Get("foo")
 	require.True(t, ok)
 	require.Equal(t, "bar", val)
+
+	s.Set("baz", 123)
+	val, ok = s.Get("baz")
+	require.True(t, ok)
+	require.Equal(t, 123, val)
+
+	s.Set("enabled", true)
+	val, ok = s.Get("enabled")
+	require.True(t, ok)
+	require.Equal(t, true, val)
+
+	s.Set("data", map[string]int{"count": 42})
+	val, ok = s.Get("data")
+	expectedMap := map[string]int{"count": 42}
+	require.True(t, ok)
+	require.Equal(t, expectedMap, val)
 }
 
 func TestStore_BackupAndRestore(t *testing.T) {
@@ -33,7 +49,7 @@ func TestStore_BackupAndRestore(t *testing.T) {
 	bytes, err := os.ReadFile(getBackupFilePath(t))
 	require.NoError(t, err)
 
-	var contents map[string]string
+	var contents map[string]any
 	err = json.Unmarshal(bytes, &contents)
 	require.NoError(t, err)
 	require.Equal(t, "1", contents["one"])
@@ -64,10 +80,64 @@ func TestStore_AutoBackup(t *testing.T) {
 	bytes, err := os.ReadFile(getBackupFilePath(t))
 	require.NoError(t, err)
 
-	var contents map[string]string
+	var contents map[string]any
 	err = json.Unmarshal(bytes, &contents)
 	require.NoError(t, err)
 	require.Equal(t, "A", contents["alpha"])
+}
+
+func TestStore_BackupRestoreWithMixedTypes(t *testing.T) {
+	s, err := NewStore()
+	require.NoError(t, err)
+
+	// Set different types of data
+	s.Set("string", "hello")
+	s.Set("number", 42)
+	s.Set("float", 3.14)
+	s.Set("boolean", true)
+	s.Set("slice", []string{"a", "b", "c"})
+	s.Set("map", map[string]any{"nested": "value", "count": 10})
+
+	err = s.Backup()
+	require.NoError(t, err)
+
+	// Create a new store to test restoration
+	s2, err := NewStore()
+	require.NoError(t, err)
+
+	// Test string value
+	val, ok := s2.Get("string")
+	require.True(t, ok)
+	require.Equal(t, "hello", val)
+
+	// Test number value (JSON unmarshals numbers as float64)
+	val, ok = s2.Get("number")
+	require.True(t, ok)
+	require.Equal(t, float64(42), val)
+
+	// Test float value
+	val, ok = s2.Get("float")
+	require.True(t, ok)
+	require.Equal(t, 3.14, val)
+
+	// Test boolean value
+	val, ok = s2.Get("boolean")
+	require.True(t, ok)
+	require.Equal(t, true, val)
+
+	// Test slice value
+	val, ok = s2.Get("slice")
+	require.True(t, ok)
+	// JSON unmarshals []string as []interface{}
+	expectedSlice := []interface{}{"a", "b", "c"}
+	require.Equal(t, expectedSlice, val)
+
+	// Test map value
+	val, ok = s2.Get("map")
+	require.True(t, ok)
+	// JSON unmarshals map[string]any as map[string]interface{}
+	expectedMap := map[string]interface{}{"nested": "value", "count": float64(10)}
+	require.Equal(t, expectedMap, val)
 }
 
 func TestStore_AutoBackup_ErrorHandling(t *testing.T) {

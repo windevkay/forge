@@ -13,9 +13,12 @@
 //		log.Fatal(err)
 //	}
 //
-//	// Set and get values
-//	store.Set("key1", "value1")
-//	value, exists := store.Get("key1")
+//	// Set and get values of any type
+//	store.Set("username", "alice")         // string
+//	store.Set("user_id", 12345)           // int
+//	store.Set("active", true)             // bool
+//	store.Set("data", map[string]int{"count": 10}) // map
+//	value, exists := store.Get("username")
 //
 //	// Start automatic backups every 5 minutes
 //	store.StartAutoBackup(5 * time.Minute)
@@ -45,7 +48,7 @@ const (
 
 type Store struct {
 	mu       sync.RWMutex
-	data     map[string]string
+	data     map[string]any
 	path     string
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -82,7 +85,7 @@ func NewStore() (*Store, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Store{
-		data:    make(map[string]string),
+		data:    make(map[string]any),
 		path:    path,
 		ctx:     ctx,
 		cancel:  cancel,
@@ -102,13 +105,15 @@ func NewStore() (*Store, error) {
 //
 // Parameters:
 //   - key: The key to store (can be any non-empty string)
-//   - value: The value to associate with the key (can be any string, including empty)
+//   - value: The value to associate with the key (can be any type)
 //
 // Example:
 //
 //	store.Set("username", "alice")
-//	store.Set("config.timeout", "30s")
-func (s *Store) Set(key, value string) {
+//	store.Set("config.timeout", 30)
+//	store.Set("config.enabled", true)
+//	store.Set("data", map[string]int{"count": 42})
+func (s *Store) Set(key string, value any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[key] = value
@@ -121,18 +126,18 @@ func (s *Store) Set(key, value string) {
 //   - key: The key to look up
 //
 // Returns:
-//   - string: The value associated with the key (empty string if key doesn't exist)
+//   - any: The value associated with the key (nil if key doesn't exist)
 //   - bool: true if the key exists, false otherwise
 //
 // Example:
 //
 //	value, exists := store.Get("username")
 //	if exists {
-//		fmt.Printf("Username: %s\n", value)
+//		fmt.Printf("Username: %v\n", value)
 //	} else {
 //		fmt.Println("Username not found")
 //	}
-func (s *Store) Get(key string) (string, bool) {
+func (s *Store) Get(key string) (any, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.data[key]
