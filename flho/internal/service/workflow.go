@@ -142,6 +142,8 @@ func NewService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.WaitGrou
 }
 
 type Run struct {
+	currStep     int
+	failed       bool
 	workflowName string
 	retryCancel  context.CancelFunc
 	start, end   *time.Time
@@ -156,6 +158,7 @@ func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) str
 	runCtx, cancel := context.WithCancel(ctx)
 	runstart := w.timeProvider.Now()
 	run := &Run{
+		currStep:     index,
 		workflowName: name,
 		retryCancel:  cancel,
 		start:        &runstart,
@@ -185,13 +188,17 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) erro
 	// getting to this point means we now need to process the next step
 	cIdx, _ := strconv.Atoi(currentIdx)
 	// create a fresh run context and cancel func
+	// also update the current runs step
 	runCtx, cancel := context.WithCancel(ctx)
 	run.retryCancel = cancel
+
+	step := cIdx + 1
+	run.currStep = step
 
 	w.runs.Store(runID, run)
 
 	w.wg.Add(1)
-	go w.processStep(runCtx, cIdx+1, runID, run.workflowName)
+	go w.processStep(runCtx, step, runID, run.workflowName)
 
 	return nil
 }
@@ -232,7 +239,9 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 
 	w.store.Set(runID, strconv.Itoa(index))
 
-	ticker := time.NewTicker(workflow[index][step].RetryAfter)
+	stepData := workflow[index][step]
+
+	ticker := time.NewTicker(stepData.RetryAfter)
 
 	for {
 		select {
@@ -253,7 +262,7 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 			jsonData, _ := json.Marshal(retryData)
 
 			// Create HTTP request with context
-			req, err := http.NewRequestWithContext(ctx, "POST", workflow[index][step].RetryURL, bytes.NewBuffer(jsonData))
+			req, err := http.NewRequestWithContext(ctx, "POST", stepData.RetryURL, bytes.NewBuffer(jsonData))
 			if err != nil {
 				w.logger.Error("failed to create HTTP request")
 				return
@@ -267,8 +276,8 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 				return
 			}
 			_ = res.Body.Close()
-			// cleanup the runs map
-			w.runs.Delete(runID)
+			// mark run as failed
+			_ = w.markRunAsFailed(runID)
 			return
 		case <-ctx.Done():
 			ticker.Stop()
@@ -289,4 +298,16 @@ func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
 	run.retryCancel()
 
 	return run, nil
+}
+
+// help to mark a failed run and update the end timestamp
+func (w *WorkflowService) markRunAsFailed(runID string) error {
+	r, _ := w.runs.Load(runID)
+	run := r.(*Run)
+	run.failed = true
+	runEnd := w.timeProvider.Now()
+	run.end = &runEnd
+
+	w.runs.Store(runID, run)
+	return nil
 }
