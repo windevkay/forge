@@ -39,22 +39,6 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
-  gomnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - operation
-      - return
-      - assign
-    ignored-numbers:
-      - '0'
-      - '1'
-      - '2'
-      - '3'
-      - '10'
-      - '100'
-      - '1000'
   revive:
     rules:
       - name: exported
@@ -80,7 +64,6 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gomnd
     - goprintffuncname
     - gosec
     - misspell
@@ -103,7 +86,6 @@ issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
         - funlen
         - goconst
         - gosec
@@ -116,7 +98,6 @@ issues:
         - gochecknoinits
     - path: example.*\.go
       linters:
-        - gomnd
         - gosec
         - gocritic
     - text: "exported.*should have comment.*or be unexported"
