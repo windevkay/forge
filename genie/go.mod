@@ -1,4 +1,4 @@
-module github.com/windevkay/forge/genie
+module github.com/windevkay/forge/genie/v2
 
 go 1.24.1
 
