@@ -44,24 +44,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Step represents a single step in a workflow with its configuration.
 type Step struct {
 	Name       string        `yaml:"name"`
 	RetryAfter time.Duration `yaml:"retryafter"`
 	RetryURL   string        `yaml:"retryurl"`
 }
 
+// Workflow represents a complete workflow as a slice of step maps.
 type Workflow []map[string]Step
 
+// Workflows represents a collection of named workflows.
 type Workflows map[string]Workflow
 
+// Root represents the root configuration structure containing all workflows.
 type Root struct {
 	Workflows Workflows `yaml:"workflows"`
 }
 
+// ConfigStore manages workflow configurations loaded from YAML files.
 type ConfigStore struct {
 	data Root
 }
 
+// NewConfigStoreFromFile creates a new ConfigStore by loading workflow
+// configurations from the specified YAML file path.
 func NewConfigStoreFromFile(path string) (*ConfigStore, error) {
 	if path == "" {
 		return nil, errors.New("path cannot be empty")
@@ -98,6 +105,7 @@ func NewConfigStoreFromFile(path string) (*ConfigStore, error) {
 	return &ConfigStore{data: root}, nil
 }
 
+// GetWorkflows returns the collection of workflows managed by this ConfigStore.
 func (s *ConfigStore) GetWorkflows() Workflows {
 	return s.data.Workflows
 }

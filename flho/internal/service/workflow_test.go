@@ -195,10 +195,10 @@ func TestUpdateWorkflow(t *testing.T) {
 		{
 			name:  "run ID not found in store",
 			runID: "missing-run-id",
-			setupStore: func(store *genie.Store) {
+			setupStore: func(_ *genie.Store) {
 				// Don't set anything
 			},
-			setupRuns:   func(svc *WorkflowService) {},
+			setupRuns:   func(_ *WorkflowService) {},
 			expectedErr: "no data found for run ID: missing-run-id",
 		},
 		{
@@ -207,7 +207,7 @@ func TestUpdateWorkflow(t *testing.T) {
 			setupStore: func(store *genie.Store) {
 				store.Set("orphaned-run-id", "1")
 			},
-			setupRuns:   func(svc *WorkflowService) {},
+			setupRuns:   func(_ *WorkflowService) {},
 			expectedErr: "run information missing. Did a previous step fail?",
 		},
 	}
@@ -257,7 +257,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		{
 			name:  "run not found",
 			runID: "missing-run-id",
-			setupRuns: func(svc *WorkflowService) {
+			setupRuns: func(_ *WorkflowService) {
 				// Don't set anything
 			},
 			expectedErr: "run information missing. Did a previous step fail?",
@@ -318,7 +318,7 @@ func TestCancelRetryCountdown(t *testing.T) {
 		{
 			name:  "run not found",
 			runID: "missing-run-id",
-			setupRuns: func(svc *WorkflowService) {
+			setupRuns: func(_ *WorkflowService) {
 				// Don't set anything
 			},
 			expectedErr: "run information missing. Did a previous step fail?",

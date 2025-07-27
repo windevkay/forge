@@ -76,28 +76,40 @@ import (
 	"github.com/windevkay/forge/genie"
 )
 
+// HTTPClient defines the interface for making HTTP requests.
+// This interface allows for easy mocking and testing of HTTP interactions.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// UUIDProvider defines the interface for generating UUID strings.
+// This allows for deterministic UUID generation in tests.
 type UUIDProvider interface {
 	NewString() string
 }
 
+// TimeProvider defines the interface for getting the current time.
+// This allows for time mocking in tests.
 type TimeProvider interface {
 	Now() time.Time
 }
 
 // Production implementations
 
+// DefaultUUIDProvider is the default implementation of UUIDProvider
+// that generates actual UUIDs using the google/uuid package.
 type DefaultUUIDProvider struct{}
 
+// NewString generates a new UUID string.
 func (p *DefaultUUIDProvider) NewString() string {
 	return uuid.NewString()
 }
 
+// DefaultTimeProvider is the default implementation of TimeProvider
+// that returns the actual current time.
 type DefaultTimeProvider struct{}
 
+// Now returns the current time.
 func (p *DefaultTimeProvider) Now() time.Time {
 	return time.Now()
 }
@@ -116,6 +128,8 @@ func NewWorkflowService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.
 	)
 }
 
+// WorkflowService manages workflow execution, including step processing,
+// retry logic, and run state management.
 type WorkflowService struct {
 	config       *workflow.ConfigStore
 	httpClient   HTTPClient
@@ -141,6 +155,8 @@ func NewService(cfg *workflow.ConfigStore, store *genie.Store, wg *sync.WaitGrou
 	}
 }
 
+// Run represents a workflow execution instance with its current state
+// and step information.
 type Run struct {
 	currStep     int
 	failed       bool

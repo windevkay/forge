@@ -41,6 +41,7 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
+    ignore-comments: true
   mnd:
     checks:
       - argument
@@ -57,6 +58,28 @@ linters-settings:
       - '10'
       - '100'
       - '1000'
+  gomnd: # For compatibility with older versions
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '10'
+      - '100'
+      - '1000'
+  revive:
+    rules:
+      - name: exported
+        arguments: ["checkPrivateReceivers", "sayRepetitiveInsteadOfStutters"]
+  stylecheck:
+    checks: ["all"]
 
 linters:
   enable:
@@ -66,13 +89,14 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-
+    
     # Additional useful linters
     - bodyclose
     - copyloopvar
     - dogsled
     - dupl
     - exhaustive
+    - funlen
     - gochecknoinits
     - goconst
     - gocritic
@@ -87,25 +111,53 @@ linters:
     - unconvert
     - unparam
     - whitespace
+    - revive
+
+  disable:
+    - depguard
+    - godox
+    - testpackage
+    - varnamelen
+    - noctx
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
         - mnd
+        - gomnd
         - funlen
         - goconst
         - gosec
+        - gocyclo
+        - gocognit
+        - dupl
+        - lll
+        - gocritic
+        - forcetypeassert
+        - goerr113
+        - wrapcheck
+    - path: ".*_test\\.go$"
+      linters:
+        - funlen
+    - path: cmd/.*\.go
+      linters:
+        - gochecknoinits
     - path: example.*\.go
       linters:
         - mnd
+        - gomnd
         - gosec
+        - gocritic
+    - text: "exported.*should have comment.*or be unexported"
+      linters:
+        - revive
+      path: _test\.go
+    - text: "don't use `init` function"
+      linters:
+        - gochecknoinits
+      path: cmd/
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
 

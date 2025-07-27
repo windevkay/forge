@@ -24,7 +24,7 @@ func (app *application) writeResponse(w http.ResponseWriter, statusCode int, dat
 	}
 }
 
-func (app *application) healthcheck(w http.ResponseWriter, r *http.Request) {
+func (app *application) healthcheck(w http.ResponseWriter, _ *http.Request) {
 	app.writeResponse(w, http.StatusOK, envelope{
 		"status": "available",
 	})

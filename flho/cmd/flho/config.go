@@ -1,3 +1,6 @@
+// Package main provides the FLHO (Fast Lightweight HTTP Operations) application.
+// This application implements a workflow execution system with HTTP-based steps
+// and automatic retry mechanisms.
 package main
 
 import (
