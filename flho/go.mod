@@ -3,7 +3,7 @@ module github.com/windevkay/forge/flho
 go 1.24.1
 
 require (
-	github.com/windevkay/forge/genie v1.0.0
+	github.com/windevkay/forge/genie/v2 v2.0.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 

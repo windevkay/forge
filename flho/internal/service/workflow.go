@@ -73,7 +73,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/windevkay/forge/flho/internal/workflow"
-	"github.com/windevkay/forge/genie"
+	"github.com/windevkay/forge/genie/v2"
 )
 
 // HTTPClient defines the interface for making HTTP requests.
@@ -202,7 +202,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) erro
 	}
 
 	// getting to this point means we now need to process the next step
-	cIdx, _ := strconv.Atoi(currentIdx)
+	cIdx, _ := strconv.Atoi(currentIdx.(string))
 	// create a fresh run context and cancel func
 	// also update the current runs step
 	runCtx, cancel := context.WithCancel(ctx)

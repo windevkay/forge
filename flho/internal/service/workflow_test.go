@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/windevkay/forge/flho/internal/workflow"
-	"github.com/windevkay/forge/genie"
+	"github.com/windevkay/forge/genie/v2"
 )
 
 // --- Mocks ---

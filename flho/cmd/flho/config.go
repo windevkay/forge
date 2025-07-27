@@ -11,7 +11,7 @@ import (
 
 	"github.com/windevkay/forge/flho/internal/service"
 	"github.com/windevkay/forge/flho/internal/workflow"
-	"github.com/windevkay/forge/genie"
+	"github.com/windevkay/forge/genie/v2"
 )
 
 type config struct {
