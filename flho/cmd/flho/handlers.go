@@ -139,7 +139,7 @@ func parseInt(val string, defaultInt int) int {
 	return result
 }
 
-func (app *application) renderHTML(w http.ResponseWriter, _ string, data interface{}) {
+func (app *application) renderHTML(w http.ResponseWriter, _ string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	tmpl, err := template.New("runs.html").Funcs(template.FuncMap{
@@ -179,7 +179,7 @@ func (app *application) renderHTML(w http.ResponseWriter, _ string, data interfa
 		"eq": func(a, b interface{}) bool { return a == b },
 		"gt": func(a, b int) bool { return a > b },
 		"lt": func(a, b int) bool { return a < b },
-	}).ParseFiles("web/templates/runs.html")
+	}).ParseFiles("../../web/templates/runs.html")
 
 	if err != nil {
 		app.logger.Error("Template parse error: " + err.Error())
@@ -191,5 +191,6 @@ func (app *application) renderHTML(w http.ResponseWriter, _ string, data interfa
 	if err != nil {
 		app.logger.Error("Template execution error: " + err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 }
