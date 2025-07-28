@@ -66,7 +66,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -136,7 +135,6 @@ type WorkflowService struct {
 	uuidProvider UUIDProvider
 	timeProvider TimeProvider
 	logger       *slog.Logger
-	runs         sync.Map
 	store        *genie.Store
 	wg           *sync.WaitGroup
 }
@@ -180,7 +178,7 @@ func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) str
 		start:        &runstart,
 	}
 
-	w.runs.Store(runID, run)
+	w.store.Set(runID, run)
 
 	w.wg.Add(1)
 	go w.processStep(runCtx, index, runID, name)
@@ -191,30 +189,29 @@ func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) str
 // UpdateWorkflow progresses the specified workflow by one step.
 // It retrieves the current step index and processes the next step.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, runID string) error {
-	currentIdx, existing := w.store.Get(runID)
+	r, existing := w.store.Get(runID)
 	if !existing {
 		return fmt.Errorf("no data found for run ID: %s", runID)
 	}
+
+	run := r.(*Run)
+	nextStep := run.currStep + 1
 
 	run, err := w.cancelRetryCountdown(runID)
 	if err != nil {
 		return err
 	}
 
-	// getting to this point means we now need to process the next step
-	cIdx, _ := strconv.Atoi(currentIdx.(string))
 	// create a fresh run context and cancel func
 	// also update the current runs step
 	runCtx, cancel := context.WithCancel(ctx)
 	run.retryCancel = cancel
+	run.currStep = nextStep
 
-	step := cIdx + 1
-	run.currStep = step
-
-	w.runs.Store(runID, run)
+	w.store.Set(runID, run)
 
 	w.wg.Add(1)
-	go w.processStep(runCtx, step, runID, run.workflowName)
+	go w.processStep(runCtx, nextStep, runID, run.workflowName)
 
 	return nil
 }
@@ -230,7 +227,7 @@ func (w *WorkflowService) CompleteWorkflow(runID string) error {
 	runEnd := w.timeProvider.Now()
 	run.end = &runEnd
 
-	w.runs.Store(runID, run)
+	w.store.Set(runID, run)
 
 	return nil
 }
@@ -252,8 +249,6 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 		w.logger.Error("encountered a step with no config")
 		return
 	}
-
-	w.store.Set(runID, strconv.Itoa(index))
 
 	stepData := workflow[index][step]
 
@@ -305,7 +300,7 @@ func (w *WorkflowService) processStep(ctx context.Context, index int, runID, nam
 // cancelRetryCountdown cancels any pending retries for the specified run ID.
 // It retrieves and returns the run information.
 func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
-	r, ok := w.runs.Load(runID)
+	r, ok := w.store.Get(runID)
 	if !ok {
 		return nil, errors.New("run information missing. Did a previous step fail?")
 	}
@@ -318,11 +313,11 @@ func (w *WorkflowService) cancelRetryCountdown(runID string) (*Run, error) {
 
 // help to mark a failed run and update the end timestamp
 func (w *WorkflowService) markRunAsFailed(runID string) {
-	r, _ := w.runs.Load(runID)
+	r, _ := w.store.Get(runID)
 	run := r.(*Run)
 	run.failed = true
 	runEnd := w.timeProvider.Now()
 	run.end = &runEnd
 
-	w.runs.Store(runID, run)
+	w.store.Set(runID, run)
 }

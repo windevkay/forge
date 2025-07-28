@@ -17,7 +17,7 @@ import (
 func main() {
 	var cfg config
 	const defaultHTTPPort = 4000
-	const defaultDataBackupInterval = 10
+	const defaultDataBackupInterval = 1
 
 	flag.IntVar(&cfg.port, "PORT", defaultHTTPPort, "HTTP server port")
 	flag.StringVar(&cfg.workflowConfig, "WORKFLOWS", "", "Path to workflow config YAML")
