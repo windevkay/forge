@@ -1,0 +1,19 @@
+workflows:
+  user_onboarding:
+    - step0:
+        retry_after: 30s
+        retry_url: "http://localhost:8080/retry/user_onboarding/step0"
+    - step1:
+        retry_after: 60s
+        retry_url: "http://localhost:8080/retry/user_onboarding/step1"
+    - step2:
+        retry_after: 120s
+        retry_url: "http://localhost:8080/retry/user_onboarding/step2"
+  
+  payment_processing:
+    - step0:
+        retry_after: 10s
+        retry_url: "http://localhost:8080/retry/payment/step0"
+    - step1:
+        retry_after: 30s
+        retry_url: "http://localhost:8080/retry/payment/step1"

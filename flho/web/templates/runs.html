@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Runs - Flho</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+                    <div class="container-fluid">
+                        <a class="navbar-brand" href="#">
+                            <i class="bi bi-gear-fill me-2"></i>Flho Workflow Manager
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">Workflow Runs</h2>
+                    <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <form method="GET" class="row g-3">
+                            <div class="col-md-3">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select" name="status" id="status">
+                                    <option value="">All Status</option>
+                                    <option value="ongoing">Ongoing</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="failed">Failed</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="workflow" class="form-label">Workflow Name</label>
+                                <input type="text" class="form-control" name="workflow" id="workflow" 
+                                       placeholder="Search by workflow name..." value="">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="bi bi-search me-1"></i>Filter
+                                </button>
+                                <a href="/runs" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle me-1"></i>Clear
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Results Info -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <span class="text-muted">Showing {{len .Runs}} of {{.TotalCount}} runs</span>
+                    </div>
+                    <div>
+                        <span class="text-muted">Page {{.Page}} of {{.TotalPages}}</span>
+                    </div>
+                </div>
+                
+                <!-- Runs Table -->
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Run ID</th>
+                                        <th>Workflow Name</th>
+                                        <th>Status</th>
+                                        <th>Current Step</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{if .Runs}}
+                                        {{range .Runs}}
+                                        <tr>
+                                            <td><code class="fs-6">{{.ID}}</code></td>
+                                            <td>{{.WorkflowName}}</td>
+                                            <td>
+                                                <span class="badge {{statusBadge .Status}} text-white">{{.Status}}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">Step {{.CurrentStep}}</span>
+                                            </td>
+                                            <td>{{formatTime .StartTime}}</td>
+                                            <td>{{formatTime .EndTime}}</td>
+                                            <td>{{formatDuration .Duration}}</td>
+                                        </tr>
+                                        {{end}}
+                                    {{else}}
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4 text-muted">
+                                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                                No workflow runs found
+                                            </td>
+                                        </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pagination -->
+                {{if gt .TotalPages 1}}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <!-- Previous -->
+                        {{if gt .Page 1}}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{sub .Page 1}}{{if .Status}}&status={{.Status}}{{end}}{{if .WorkflowName}}&workflow={{.WorkflowName}}{{end}}">
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        {{else}}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="bi bi-chevron-left"></i> Previous</span>
+                            </li>
+                        {{end}}
+                        
+                        <!-- Page Numbers -->
+                        {{range $i := iterate .TotalPages}}
+                            {{$pageNum := add $i 1}}
+                            {{if eq $pageNum $.Page}}
+                                <li class="page-item active">
+                                    <span class="page-link">{{$pageNum}}</span>
+                                </li>
+                            {{else}}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{$pageNum}}{{if $.Status}}&status={{$.Status}}{{end}}{{if $.WorkflowName}}&workflow={{$.WorkflowName}}{{end}}">{{$pageNum}}</a>
+                                </li>
+                            {{end}}
+                        {{end}}
+                        
+                        <!-- Next -->
+                        {{if lt .Page .TotalPages}}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{add .Page 1}}{{if .Status}}&status={{.Status}}{{end}}{{if .WorkflowName}}&workflow={{.WorkflowName}}{{end}}">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        {{else}}
+                            <li class="page-item disabled">
+                                <span class="page-link">Next <i class="bi bi-chevron-right"></i></span>
+                            </li>
+                        {{end}}
+                    </ul>
+                </nav>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -9,6 +9,7 @@ func (app *application) routes() *http.ServeMux {
 	mux.HandleFunc("/initiateWorkflow", app.initiateWorkflow)
 	mux.HandleFunc("/updateWorkflowRun", app.updateWorkflow)
 	mux.HandleFunc("/completeWorkflowRun", app.completeWorkflow)
+	mux.HandleFunc("/runs", app.listRuns)
 
 	return mux
 }

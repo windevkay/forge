@@ -66,6 +66,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -137,6 +139,7 @@ type WorkflowService struct {
 	logger       *slog.Logger
 	store        *genie.Store
 	wg           *sync.WaitGroup
+	runIDs       sync.Map // Track run IDs since genie store doesn't support iteration
 }
 
 // NewService creates a new instance of WorkflowService with the provided configuration,
@@ -163,6 +166,46 @@ type Run struct {
 	start, end   *time.Time
 }
 
+// RunStatus represents the status of a workflow run
+type RunStatus string
+
+const (
+	// RunStatusOngoing represents runs that are in progress
+	RunStatusOngoing RunStatus = "ongoing"
+	// RunStatusCompleted represents runs that have completed successfully
+	RunStatusCompleted RunStatus = "completed"
+	// RunStatusFailed represents runs that have encountered a failure
+	RunStatusFailed RunStatus = "failed"
+)
+
+// RunInfo represents run information for display purposes
+type RunInfo struct {
+	ID           string
+	WorkflowName string
+	Status       RunStatus
+	CurrentStep  int
+	StartTime    *time.Time
+	EndTime      *time.Time
+	Duration     *time.Duration
+}
+
+// RunsFilter represents filtering options for retrieving runs
+type RunsFilter struct {
+	Status       string // "ongoing", "completed", "failed", or empty for all
+	WorkflowName string // partial match on workflow name
+	Page         int    // page number (1-based)
+	PageSize     int    // items per page
+}
+
+// RunsResponse represents the response structure for runs data
+type RunsResponse struct {
+	Runs       []RunInfo
+	TotalCount int
+	Page       int
+	PageSize   int
+	TotalPages int
+}
+
 // InitiateWorkflow starts a new workflow instance with the given name, returning a unique run ID.
 // It initiates the first step of the workflow in a separate goroutine.
 func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) string {
@@ -179,6 +222,7 @@ func (w *WorkflowService) InitiateWorkflow(ctx context.Context, name string) str
 	}
 
 	w.store.Set(runID, run)
+	w.runIDs.Store(runID, true) // Track run ID
 
 	w.wg.Add(1)
 	go w.processStep(runCtx, index, runID, name)
@@ -320,4 +364,96 @@ func (w *WorkflowService) markRunAsFailed(runID string) {
 	run.end = &runEnd
 
 	w.store.Set(runID, run)
+}
+
+// GetRuns retrieves paginated run data filtered by status and name
+func (w *WorkflowService) GetRuns(filter RunsFilter) RunsResponse {
+	var runs []RunInfo
+
+	// Iterate over tracked run IDs
+	w.runIDs.Range(func(key, _ any) bool {
+		runID := key.(string)
+
+		// Get the run data from the store
+		runData, exists := w.store.Get(runID)
+		if !exists {
+			// Clean up orphaned run ID
+			w.runIDs.Delete(runID)
+			return true
+		}
+
+		run := runData.(*Run)
+
+		// Filtering by status
+		status := RunStatusOngoing
+		if run.failed {
+			status = RunStatusFailed
+		} else if run.end != nil {
+			status = RunStatusCompleted
+		}
+
+		if filter.Status != "" && status != RunStatus(filter.Status) {
+			return true
+		}
+
+		// Filtering by workflow name
+		if filter.WorkflowName != "" && !strings.Contains(run.workflowName, filter.WorkflowName) {
+			return true
+		}
+
+		// Duration calculation
+		var duration *time.Duration
+		if run.end != nil {
+			d := run.end.Sub(*run.start)
+			duration = &d
+		}
+
+		runs = append(runs, RunInfo{
+			ID:           runID,
+			CurrentStep:  run.currStep,
+			WorkflowName: run.workflowName,
+			Status:       status,
+			StartTime:    run.start,
+			EndTime:      run.end,
+			Duration:     duration,
+		})
+
+		return true
+	})
+
+	// Sort runs by start time (latest first)
+	sort.Slice(runs, func(i, j int) bool {
+		if runs[i].StartTime == nil {
+			return false
+		}
+		if runs[j].StartTime == nil {
+			return true
+		}
+		return runs[i].StartTime.After(*runs[j].StartTime)
+	})
+
+	// Implement pagination
+	total := len(runs)
+	start := (filter.Page - 1) * filter.PageSize
+	if start > total {
+		start = total
+	}
+	end := start + filter.PageSize
+	if end > total {
+		end = total
+	}
+	paginatedRuns := runs[start:end]
+
+	totalPages := (total + filter.PageSize - 1) / filter.PageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	return RunsResponse{
+		Runs:       paginatedRuns,
+		TotalCount: total,
+		Page:       filter.Page,
+		PageSize:   filter.PageSize,
+		TotalPages: totalPages,
+	}
 }
