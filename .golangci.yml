@@ -1,6 +1,8 @@
 # golangci-lint configuration
 # This file will be used by all Go packages in subdirectories
 
+version: 2
+
 run:
   timeout: 5m
   modules-download-mode: readonly
