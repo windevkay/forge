@@ -55,7 +55,7 @@ type Store struct {
 	path     string
 	ctx      context.Context
 	cancel   context.CancelFunc
-	backupWg sync.WaitGroup
+	wg       sync.WaitGroup
 	autoMode bool
 	errChan  chan error
 }
@@ -244,11 +244,8 @@ func (s *Store) StartAutoBackup(interval time.Duration) {
 		return // already running
 	}
 	s.autoMode = true
-	s.backupWg.Add(1)
-	go func() {
-		defer s.backupWg.Done()
+	backupFunc := func() {
 		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
@@ -259,15 +256,15 @@ func (s *Store) StartAutoBackup(interval time.Duration) {
 					}
 				}
 			case <-s.ctx.Done():
-				close(s.errChan)
 				return
 			}
 		}
-	}()
+	}
+
+	s.wg.Go(backupFunc)
 }
 
 // StopAutoBackup stops the automatic backup process if it's currently running.
-// This method will block until the backup goroutine has fully terminated.
 // If auto backup is not currently running, this method does nothing.
 //
 // After calling this method, the error channel returned by AutoBackupErrors()
@@ -286,7 +283,8 @@ func (s *Store) StopAutoBackup() {
 		return
 	}
 	s.cancel()
-	s.backupWg.Wait()
+	s.wg.Wait()
+	close(s.errChan)
 	s.autoMode = false
 }
 
@@ -315,7 +313,6 @@ func (s *Store) StopAutoBackup() {
 //			log.Printf("Auto backup failed: %v", err)
 //			// Optionally trigger manual backup or other recovery
 //		}
-//		log.Println("Auto backup error monitoring stopped")
 //	}()
 func (s *Store) AutoBackupErrors() <-chan error {
 	return s.errChan
