@@ -15,10 +15,10 @@ type tracingHandler struct {
 	data map[any]any
 }
 
-type spanIdKey struct{}
+type spanIDKey struct{}
 
 func (t *tracingHandler) Handle(ctx context.Context, r slog.Record) error {
-	if v := ctx.Value(spanIdKey{}); v != nil {
+	if v := ctx.Value(spanIDKey{}); v != nil {
 		if spanId, ok := v.(string); ok {
 			r.AddAttrs(slog.String("span_id", spanId))
 		}
@@ -44,9 +44,9 @@ func Setup(data map[any]any) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// add base span identifier
-			spanId := randID()
+			spanID := randID()
 			var ctx context.Context
-			ctx = context.WithValue(r.Context(), spanIdKey{}, spanId)
+			ctx = context.WithValue(r.Context(), spanIDKey{}, spanID)
 			// add other provided data
 			for k, v := range data {
 				ctx = context.WithValue(ctx, k, v)
