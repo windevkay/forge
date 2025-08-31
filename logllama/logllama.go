@@ -19,8 +19,8 @@ type spanIDKey struct{}
 
 func (t *tracingHandler) Handle(ctx context.Context, r slog.Record) error {
 	if v := ctx.Value(spanIDKey{}); v != nil {
-		if spanId, ok := v.(string); ok {
-			r.AddAttrs(slog.String("span_id", spanId))
+		if spanID, ok := v.(string); ok {
+			r.AddAttrs(slog.String("span_id", spanID))
 		}
 	}
 	// add other data attrs available on ctx
