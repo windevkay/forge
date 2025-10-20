@@ -70,6 +70,8 @@ func (t *tracingHandler) processLog(r slog.Record, spanID string) {
 		history.mu.RUnlock()
 
 		r.AddAttrs(slog.Any("span_history", historySnapshot))
+		// Trigger Ollama analysis in background
+		AnalyzeErrorWithHistory(spanID, r.Message, historySnapshot)
 		// clear history buffer for span
 		// note: this assumes an application starts to return upon encountering an error
 		t.histories.Delete(spanID)
