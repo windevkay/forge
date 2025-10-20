@@ -43,7 +43,7 @@ func (s *spanHistory) storeLogToHistory(log logEntry) {
 	s.mu.Unlock()
 }
 
-// tracingHandler decorates an underlying slog.Handler by:
+// tracingHandler wraps an underlying slog.Handler by:
 // 1) injecting a span_id into each record (when present in context), and
 // 2) maintaining a per-span history of non-error logs for inclusion on errors.
 type tracingHandler struct {
@@ -53,10 +53,10 @@ type tracingHandler struct {
 
 // processLog records non-error logs into the span history and, for error-level
 // logs, attaches a snapshot of the history to the record and clears the history.
-func (t *tracingHandler) processLog(r slog.Record, spanId string) {
+func (t *tracingHandler) processLog(r slog.Record, spanID string) {
 	var history *spanHistory
 	// load existing history
-	existingHistory, ok := t.histories.Load(spanId)
+	existingHistory, ok := t.histories.Load(spanID)
 	if !ok {
 		history = &spanHistory{}
 	} else {
@@ -72,14 +72,14 @@ func (t *tracingHandler) processLog(r slog.Record, spanId string) {
 		r.AddAttrs(slog.Any("span_history", historySnapshot))
 		// clear history buffer for span
 		// note: this assumes an application starts to return upon encountering an error
-		t.histories.Delete(spanId)
+		t.histories.Delete(spanID)
 	} else {
 		history.storeLogToHistory(logEntry{
 			Time:    r.Time,
 			Level:   r.Level,
 			Message: r.Message,
 			Attrs: func() []slog.Attr {
-				attrs := []slog.Attr{}
+				attrs := make([]slog.Attr, 0, r.NumAttrs())
 
 				r.Attrs(func(attr slog.Attr) bool {
 					attrs = append(attrs, attr)
@@ -89,7 +89,7 @@ func (t *tracingHandler) processLog(r slog.Record, spanId string) {
 				return attrs
 			}(),
 		})
-		t.histories.Store(spanId, history)
+		t.histories.Store(spanID, history)
 	}
 }
 
