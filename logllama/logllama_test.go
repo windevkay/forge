@@ -31,7 +31,7 @@ func TestSpanHistoryMaxSize(t *testing.T) {
 	history := &spanHistory{}
 
 	// Add more than maxHistorySize entries
-	for i := 0; i < maxHistorySize+10; i++ {
+	for i := range maxHistorySize + 10 {
 		entry := logEntry{
 			Time:    time.Now(),
 			Level:   slog.LevelInfo,
@@ -119,7 +119,7 @@ func TestSpanHistoryConcurrency(t *testing.T) {
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 
