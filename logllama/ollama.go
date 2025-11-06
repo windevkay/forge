@@ -13,7 +13,7 @@ import (
 
 const (
 	ollamaURL      = "http://localhost:11434/api/generate"
-	ollamaModel    = "llama2"
+	ollamaModel    = "llama3.1"
 	maxRetries     = 2
 	requestTimeout = 30 * time.Second
 )
@@ -35,6 +35,7 @@ type ollamaResponse struct {
 // and logs the model's solution to stdout. It runs in a background goroutine
 // and retries up to 2 times on failure before giving up.
 func AnalyzeErrorWithHistory(spanID string, errorMsg string, history []logEntry) {
+	const backoffDuration = 500
 	go func() {
 		prompt := buildPrompt(errorMsg, history)
 
@@ -48,7 +49,7 @@ func AnalyzeErrorWithHistory(spanID string, errorMsg string, history []logEntry)
 				break
 			}
 			if attempt < maxRetries {
-				time.Sleep(time.Duration((attempt+1)*500) * time.Millisecond)
+				time.Sleep(time.Duration((attempt+1)*backoffDuration) * time.Millisecond)
 			}
 		}
 
@@ -120,7 +121,12 @@ func queryOllama(prompt string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call Ollama API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			slog.Error("error closing model response body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

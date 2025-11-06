@@ -64,9 +64,9 @@ func TestRandID(t *testing.T) {
 
 	// Verify it's alphanumeric
 	for _, ch := range id1 {
-		if !((ch >= '0' && ch <= '9') ||
-			(ch >= 'A' && ch <= 'Z') ||
-			(ch >= 'a' && ch <= 'z')) {
+		if (ch < '0' || ch > '9') &&
+			(ch < 'A' || ch > 'Z') &&
+			(ch < 'a' || ch > 'z') {
 			t.Errorf("ID contains non-alphanumeric character: %c", ch)
 		}
 	}
@@ -106,8 +106,8 @@ func TestSpanHistoryConcurrency(t *testing.T) {
 	done := make(chan bool, 10)
 
 	// Simulate concurrent writes
-	for i := 0; i < 10; i++ {
-		go func(idx int) {
+	for range 10 {
+		go func() {
 			entry := logEntry{
 				Time:    time.Now(),
 				Level:   slog.LevelInfo,
@@ -115,7 +115,7 @@ func TestSpanHistoryConcurrency(t *testing.T) {
 			}
 			history.storeLogToHistory(entry)
 			done <- true
-		}(i)
+		}()
 	}
 
 	// Wait for all goroutines

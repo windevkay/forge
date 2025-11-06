@@ -25,4 +25,10 @@ cd flho
 golangci-lint run --config ../.golangci-local.yml
 cd ..
 
+# Run linting for logllama
+echo "Linting logllama package..."
+cd logllama
+golangci-lint run --config ../.golangci-local.yml
+cd ..
+
 echo "Local linting completed successfully!"
